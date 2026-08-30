@@ -111,7 +111,7 @@ Future hosted scheduling should invoke the same runner from a Supabase Cron-trig
 
 ## Editor authentication and scheduling
 
-`/login` uses Supabase Auth email/password through the browser client, with cookie-backed SSR session refresh in `src/proxy.ts`. `/admin` always evaluates the authenticated user and `profiles.role` on the server; a signed-in viewer gets a helpful access state, while editors and admins receive the Update Center. Use the visible sign-out control to clear the browser session.
+`/login` uses Supabase Auth email/password through the browser client. `src/proxy.ts` validates and refreshes the cookie-backed SSR token with `getClaims()`; it does not trust an unvalidated browser session. `/admin` always evaluates the authenticated user and `profiles.role` on the server; a signed-in viewer gets a helpful access state, while editors and admins receive the Update Center. Nested `/admin/*` routes redirect unauthenticated visitors to `/login` and preserve the intended destination. Use the visible sign-out control to clear the browser session.
 
 Provision local users intentionally (never through public signup): set a local server-only service-role key, then run `pnpm user:provision editor@example.test a-long-local-password editor` (or `admin`). The script creates the auth user and upserts the role without printing credentials. Remove or change roles through Supabase Studio or a service-role SQL session; there is no public role-assignment route.
 
