@@ -10,6 +10,7 @@ async function openFirstRecommendationInPatchbay(page: Page) {
     .filter(Boolean);
   await recommendation.getByRole("link", { name: "Open in Patchbay" }).click();
   await expect(page).toHaveURL(/\/build\?state=/);
+  await expect(page.locator(".patch-node .node-title strong").first()).toBeVisible();
   const loadedComponentNames = await page
     .locator(".patch-node .node-title strong")
     .allTextContents();

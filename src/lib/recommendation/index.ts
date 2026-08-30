@@ -41,7 +41,10 @@ export function recommendStacks(data: EcosystemData, input: RecommendationInput)
   const constraints: HardwareConstraints = { localOnly: input.runPreference === "local", verifiedOnly: input.verifiedOnly, avoidDeprecated: true, appleSilicon: input.profile.architecture === "apple_silicon" };
   const sources = data.components.filter((c) => c.componentType.includes("model") && (input.task !== "coding" || c.codingCapable) && (input.task !== "vision" || c.visionCapable));
   const goals = data.components.filter((c) => (input.task === "coding" ? c.componentType === "coding_agent" || c.componentType === "agent" : c.componentType === "agent"));
-  const candidates = sources.flatMap((source) => goals.flatMap((goal) => findPaths(source.id, goal.id, { ports: data.ports, edges: data.compatibilityEdges, components: data.components }, constraints, 5).slice(0, 1).map((path) => ({ source, path }))));
+  // Hardware filtering happens below. Keep all bounded graph paths here so a
+  // higher-trust general route cannot hide a lower-ranked route that is the
+  // only one satisfying a hard hardware constraint such as strict CUDA.
+  const candidates = sources.flatMap((source) => goals.flatMap((goal) => findPaths(source.id, goal.id, { ports: data.ports, edges: data.compatibilityEdges, components: data.components }, constraints, 5).map((path) => ({ source, path }))));
   return candidates.flatMap(({ source, path }) => {
     const fit = estimateModelFit(source, input.profile); const local = path.componentIds.every((id) => data.components.find((c) => c.id === id)?.localCapable);
     const runtimes = path.componentIds.map((id) => data.components.find((c) => c.id === id)).filter((c): c is EcosystemComponent => c?.componentType === "runtime");
