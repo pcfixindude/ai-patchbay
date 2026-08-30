@@ -1,0 +1,11 @@
+-- Hosted-only template. Do not apply through `supabase db reset` and do not commit secrets.
+-- Store URL and shared secret in Supabase Vault, then schedule a bounded dispatcher call.
+-- select vault.create_secret('https://YOUR_PROJECT.functions.supabase.co/ecosystem-update', 'ecosystem_update_url');
+-- select vault.create_secret('YOUR_LONG_RANDOM_SECRET', 'ecosystem_update_secret');
+-- select cron.schedule('ecosystem-update-hourly', '17 * * * *', $$
+--   select net.http_post(
+--     url := (select decrypted_secret from vault.decrypted_secrets where name = 'ecosystem_update_url'),
+--     headers := jsonb_build_object('content-type','application/json','apikey',(select decrypted_secret from vault.decrypted_secrets where name = 'ecosystem_update_secret')),
+--     body := '{"adapterId":"github"}'::jsonb
+--   );
+-- $$);

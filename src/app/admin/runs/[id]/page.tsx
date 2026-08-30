@@ -1,0 +1,14 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { requireEditor } from "@/lib/auth/authorization";
+
+export const metadata = { title: "Updater run · AI Patchbay" };
+
+function duration(start: string | null, end: string | null) { if (!start || !end) return "—"; return `${Math.max(0, Math.round((new Date(end).getTime()-new Date(start).getTime())/1000))}s`; }
+
+export default async function RunDetailPage({ params }: { params: Promise<{ id:string }> }) {
+  const { id }=await params; const { supabase }=await requireEditor(`/admin/runs/${id}`);
+  const [{data:run,error},{data:proposals},{data:observations}]=await Promise.all([supabase.from("update_runs").select("id,adapter_id,status,started_at,completed_at,records_examined,observations_created,proposals_created,proposals_auto_applied,proposals_requiring_review,error_count,error_summary").eq("id",id).maybeSingle(),supabase.from("proposed_changes").select("id,field_name,change_status,created_at").eq("update_run_id",id).order("created_at",{ascending:false}),supabase.from("update_observations").select("id,field_name,source_url,retrieved_at").eq("update_run_id",id).order("retrieved_at",{ascending:false})]);
+  if(error) throw new Error(error.message); if(!run) notFound();
+  return <main className="detail-page"><Link className="detail-link" href="/admin">← Update Center</Link><section className="detail-card"><span className="eyebrow">Updater trace</span><h1>{run.adapter_id} · {run.status}</h1><p className="muted">Run ID: {run.id}</p><dl className="proposal-detail-grid"><dt>Started</dt><dd>{run.started_at ? new Date(run.started_at).toLocaleString():"—"}</dd><dt>Completed</dt><dd>{run.completed_at ? new Date(run.completed_at).toLocaleString():"Running"}</dd><dt>Duration</dt><dd>{duration(run.started_at,run.completed_at)}</dd><dt>Records examined</dt><dd>{run.records_examined}</dd><dt>Observations</dt><dd>{run.observations_created}</dd><dt>Proposals</dt><dd>{run.proposals_created}</dd><dt>Auto-applied</dt><dd>{run.proposals_auto_applied}</dd><dt>Review required</dt><dd>{run.proposals_requiring_review}</dd><dt>Errors</dt><dd>{run.error_count} {run.error_summary ? `· ${run.error_summary}`:""}</dd></dl><h2>Generated proposals</h2><div className="proposal-list">{proposals?.map(item=><Link className="proposal-row" key={item.id} href={`/admin/proposals/${item.id}`}><strong>{item.field_name ?? "Proposal"}</strong><span>{item.change_status}</span><small>{new Date(item.created_at).toLocaleString()}</small></Link>)}{!proposals?.length&&<p className="empty-copy">No proposals from this run.</p>}</div><h2>Normalized observations</h2><div className="proposal-list">{observations?.map(item=><a className="proposal-row" key={item.id} href={item.source_url} target="_blank" rel="noreferrer"><strong>{item.field_name ?? "Observation"}</strong><small>{new Date(item.retrieved_at).toLocaleString()}</small></a>)}</div></section></main>;
+}

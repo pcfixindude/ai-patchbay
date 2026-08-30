@@ -1,0 +1,18 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { reviewProposal } from "../../actions";
+import { requireEditor } from "@/lib/auth/authorization";
+
+export const metadata = { title: "Proposal detail · AI Patchbay" };
+
+export default async function ProposalDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params; const { supabase } = await requireEditor(`/admin/proposals/${id}`);
+  const { data: proposal, error } = await supabase.from("proposed_changes").select("id,update_run_id,target_component_id,field_name,operation,risk_classification,source_authority,source_url,confidence,change_status,before_value,proposed_value,rationale,created_at,review_notes,reviewed_at,observation_id").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message); if (!proposal) notFound();
+  const [{ data: component }, { data: observation }, { data: audits }] = await Promise.all([
+    proposal.target_component_id ? supabase.from("components").select("name,slug,last_verified_at").eq("id", proposal.target_component_id).maybeSingle() : Promise.resolve({ data: null }),
+    proposal.observation_id ? supabase.from("update_observations").select("observation_type,observed_value,payload_snapshot,retrieved_at,source_timestamp").eq("id", proposal.observation_id).maybeSingle() : Promise.resolve({ data: null }),
+    supabase.from("update_audit_events").select("action,created_at,detail").eq("proposal_id", id).order("created_at", { ascending: false }),
+  ]);
+  return <main className="detail-page"><Link href="/admin" className="detail-link">← Update Center</Link><section className="detail-card"><span className="eyebrow">Proposal review</span><h1>{component?.name ?? "Unmapped component"}</h1><p>{proposal.field_name ?? proposal.operation} · {proposal.risk_classification} risk · {proposal.source_authority}</p><dl className="proposal-detail-grid"><dt>Status</dt><dd>{proposal.change_status}</dd><dt>Confidence</dt><dd>{Math.round(proposal.confidence * 100)}%</dd><dt>Created</dt><dd>{new Date(proposal.created_at).toLocaleString()}</dd><dt>Last verification</dt><dd>{component?.last_verified_at ? new Date(component.last_verified_at).toLocaleString() : "Not verified"}</dd><dt>Source</dt><dd>{proposal.source_url ? <a className="detail-link" href={proposal.source_url} target="_blank" rel="noreferrer">Open cited evidence</a> : "No source URL"}</dd>{proposal.update_run_id && <><dt>Originating run</dt><dd><Link className="detail-link" href={`/admin/runs/${proposal.update_run_id}`}>Open updater run</Link></dd></>}</dl><h2>Why this was proposed</h2><p>{proposal.rationale ?? "No rationale recorded."}</p><h2>Change</h2><pre>{JSON.stringify({ current: proposal.before_value, proposed: proposal.proposed_value }, null, 2)}</pre>{proposal.change_status === "pending" && <form action={reviewProposal} className="review-actions"><input type="hidden" name="proposalId" value={proposal.id} /><button className="button primary" name="decision" value="approve">Approve</button><button className="button secondary" name="decision" value="reject">Reject</button></form>}<details><summary>Technical observation details</summary><pre>{JSON.stringify({ normalizedObservation: observation?.observed_value, retrievedAt: observation?.retrieved_at, sourceTimestamp: observation?.source_timestamp, snapshot: observation?.payload_snapshot }, null, 2)}</pre></details><h2>Audit history</h2><ul className="audit-list">{audits?.map((audit) => <li key={`${audit.action}-${audit.created_at}`}><strong>{audit.action}</strong><span>{new Date(audit.created_at).toLocaleString()}</span></li>)}{!audits?.length && <li>No audit events yet.</li>}</ul></section></main>;
+}
