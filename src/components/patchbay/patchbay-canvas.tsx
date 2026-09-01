@@ -19,7 +19,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Check, LayoutGrid, RotateCcw, Save, Search, Share2, Trash2, TriangleAlert, Undo2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ComponentDetail } from "@/components/component-detail";
 import { EdgeDetail } from "@/components/edge-detail";
 import { canConnect, findCompatibleTargets, validateBuild, type CompatibilityDecision } from "@/lib/compatibility";
@@ -107,6 +107,7 @@ export function PatchbayCanvas({ data, mode = "build" }: { data: EcosystemData; 
 }
 
 function PatchbayInner({ data, mode }: { data: EcosystemData; mode: "build" | "explore" }) {
+  const [catalogWidth, setCatalogWidth] = useState(278);
   const componentById = useMemo(() => new Map(data.components.map((component) => [component.id, component])), [data.components]);
   const portById = useMemo(() => new Map(data.ports.map((port) => [port.id, port])), [data.ports]);
   const context = useMemo(() => ({ ports: data.ports, edges: data.compatibilityEdges, components: data.components }), [data]);
@@ -125,6 +126,31 @@ function PatchbayInner({ data, mode }: { data: EcosystemData; mode: "build" | "e
   const [history, setHistory] = useState<Array<{ nodes: Node<PatchNodeData>[]; edges: PatchEdge[] }>>([]);
   const instanceRef = useRef<ReactFlowInstance<Node<PatchNodeData>, PatchEdge> | null>(null);
   const lastDecisionRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    const savedWidth = Number(window.localStorage.getItem("patchbay-catalog-width"));
+    if (!Number.isFinite(savedWidth)) return;
+    const frame = window.requestAnimationFrame(() => setCatalogWidth(Math.min(460, Math.max(220, savedWidth))));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  const startCatalogResize = useCallback((event: PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = catalogWidth;
+    let width = startWidth;
+    const onMove = (moveEvent: globalThis.PointerEvent) => {
+      width = Math.min(460, Math.max(220, startWidth + moveEvent.clientX - startX));
+      setCatalogWidth(width);
+    };
+    const onEnd = () => {
+      window.localStorage.setItem("patchbay-catalog-width", String(width));
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd, { once: true });
+  }, [catalogWidth]);
 
   const inspectComponent = useCallback((component: EcosystemComponent) => {
     setSelectedCompatibility(undefined);
@@ -330,7 +356,7 @@ function PatchbayInner({ data, mode }: { data: EcosystemData; mode: "build" | "e
   }
 
   return (
-    <div className="patchbay-shell">
+    <div className="patchbay-shell" style={{ "--catalog-width": `${catalogWidth}px` } as CSSProperties}>
       <aside className="catalog-panel">
         <div className="catalog-heading"><span className="eyebrow">{mode === "explore" ? "Explore the ecosystem" : "Component library"}</span><span className="count">{catalogResults.length}</span></div>
         <label className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search models, agents, protocols…" aria-label="Search component library" />{query && <button onClick={() => setQuery("")} aria-label="Clear search"><X size={14} /></button>}</label>
@@ -353,6 +379,7 @@ function PatchbayInner({ data, mode }: { data: EcosystemData; mode: "build" | "e
         </div>
         {mode === "build" && <button className="button secondary full" onClick={loadDemo}><LayoutGrid size={15} /> Load example chain</button>}
       </aside>
+      <button className="catalog-resizer" type="button" onPointerDown={startCatalogResize} aria-label="Resize component library" title="Drag to resize component library" />
 
       <main className="canvas-region">
         <div className="canvas-toolbar">
