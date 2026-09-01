@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(30);
+select plan(34);
 
 select has_table('public', 'components', 'components exists');
 select has_table('public', 'compatibility_edges', 'compatibility_edges exists');
@@ -12,6 +12,10 @@ select has_table('public', 'update_observations', 'update observations exist');
 select has_index('public', 'proposed_changes', 'proposed_changes_pending_fingerprint_idx', 'proposal dedup index exists');
 select policies_are('public', 'components', array['public reads published components','editors manage components'], 'component policies are explicit');
 select policies_are('public', 'builds', array['users read own builds or published builds','users create own builds','users update own builds','users delete own builds'], 'build ownership policies are explicit');
+select ok(has_table_privilege('service_role', 'public.profiles', 'select'), 'service role can read provisioning profiles');
+select ok(has_table_privilege('service_role', 'public.profiles', 'insert'), 'service role can create provisioning profiles');
+select ok(has_table_privilege('service_role', 'public.profiles', 'update'), 'service role can update provisioning profiles');
+select ok(not has_table_privilege('service_role', 'public.profiles', 'delete'), 'service role cannot delete provisioning profiles');
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
 values

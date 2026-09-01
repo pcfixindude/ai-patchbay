@@ -20,8 +20,20 @@ port = 54323
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://127.0.0.1:3000/**"]
+site_url = "https://ai-patchbay.vercel.app"
+# The app uses password sign-in with same-origin `next` paths, so it has no
+# production OAuth or magic-link callback URL to allowlist. Keep only local
+# development callback targets here.
+additional_redirect_urls = ["http://localhost:3000/**", "http://127.0.0.1:3000/**"]
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
 
 [functions.ecosystem-update]
 verify_jwt = false
